@@ -1,0 +1,220 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  /* Dark gradient fallback */
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  /* Aktiverad bakgrundsbild ovanpå gradient (gradient syns vid load/glitches) */
+  background-image: url('../assets/img/GameCanva.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+h1 {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+#game-canvas {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 5;  /* Canvas ska vara ovanför bakgrunden men under h1 */
+}
+
+#name-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+#name-box {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  min-width: 350px;
+}
+
+#name-box h1 {
+  position: static;
+  transform: none;
+  margin-bottom: 25px;
+  font-size: 2.5em;
+  color: #ecf0f1;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+#name-input {
+  width: 100%;
+  padding: 12px 15px;
+  font-size: 1.2em;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  background: #ecf0f1;
+  color: #2c3e50;
+  outline: none;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  margin-bottom: 20px;
+}
+
+#name-input:focus {
+  border-color: #2980b9;
+  box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+}
+
+#play-button {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 1.3em;
+  font-weight: bold;
+  color: #fff;
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-transform: uppercase;
+}
+
+#play-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+}
+
+#play-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+}
+
+/* Mobile optimizations */
+@media only screen and (max-width: 768px) {
+  body {
+    background-attachment: scroll; /* Better performance on mobile */
+    touch-action: none; /* Prevent default touch behaviors */
+    -webkit-touch-callout: none; /* Disable callout on iOS */
+    -webkit-user-select: none; /* Disable text selection */
+    user-select: none;
+  }
+
+  #name-box {
+    min-width: unset;
+    width: 90%;
+    max-width: 400px;
+    padding: 30px 20px;
+    margin: 0 20px;
+  }
+
+  #name-box h1 {
+    font-size: 2em;
+    margin-bottom: 20px;
+  }
+
+  #name-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 15px 12px;
+    border-width: 2px;
+  }
+
+  #play-button {
+    font-size: 1.1em;
+    padding: 15px 20px;
+    min-height: 50px; /* Better touch target */
+  }
+
+  #game-canvas {
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    touch-action: none;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  #name-box {
+    padding: 25px 15px;
+  }
+
+  #name-box h1 {
+    font-size: 1.8em;
+    margin-bottom: 15px;
+  }
+
+  #name-input {
+    font-size: 16px;
+    padding: 12px 10px;
+  }
+
+  #play-button {
+    font-size: 1em;
+    padding: 14px 15px;
+  }
+}
+
+/* Landscape mode on mobile */
+@media only screen and (max-height: 500px) and (orientation: landscape) {
+  #name-box {
+    padding: 20px 15px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  #name-box h1 {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+  }
+
+  #name-input {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
+  #play-button {
+    padding: 10px 15px;
+  }
+}
+
+/* PWA-style fullscreen on iOS */
+@media only screen and (max-width: 768px) {
+  @supports (-webkit-touch-callout: none) {
+    body {
+      /* iOS-specific styles */
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    #game-canvas {
+      /* Account for iOS safe areas */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) 
+               env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+  }
+}

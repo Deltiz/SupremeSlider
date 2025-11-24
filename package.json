@@ -1,0 +1,26 @@
+{
+  "name": "supremeslider",
+  "version": "1.0.0",
+  "description": "Multiplayer slither.io-style snake game",
+  "main": "src/server/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server/server.js",
+    "dev": "node src/server/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Deltiz/SupremeSlider.git"
+  },
+  "keywords": ["game", "multiplayer", "snake", "slither"],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Deltiz/SupremeSlider/issues"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
