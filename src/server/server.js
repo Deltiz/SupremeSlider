@@ -11,6 +11,12 @@ const PORT = process.env.PORT || 8080;
 // World constants
 const WORLD = { width: 5000, height: 5000 };
 
+// Game timer constants
+const GAME_DURATION = 2.5 * 60 * 1000; // 2.5 minutes in milliseconds
+let gameStartTime = Date.now();
+let gameEndTime = gameStartTime + GAME_DURATION;
+let isGameActive = true;
+
 // Game state
 const players = {};
 const foodItems = [];
@@ -18,6 +24,45 @@ const foodItems = [];
 // Food helpers
 function rand(min, max) { return Math.random() * (max - min) + min; }
 function randInt(min, max) { return Math.floor(rand(min, max)); }
+
+// Reset game
+function resetGame() {
+  // Clear all players
+  for (const id in players) {
+    delete players[id];
+  }
+  
+  // Clear all food
+  foodItems.length = 0;
+  
+  // Respawn food using the same format as initial spawn
+  const foodPaletteLocal = ['#FFDD57', '#7BED8D', '#57C7FF', '#FF5F57', '#C057FF', '#FFA857'];
+  for (let i = 0; i < 200; i++) {
+    const radius = 6;
+    const margin = radius + 50;
+    foodItems.push({
+      id: Date.now() + Math.random() + i,
+      x: rand(margin, WORLD.width - margin),
+      y: rand(margin, WORLD.height - margin),
+      radius: radius,
+      color: foodPaletteLocal[randInt(0, foodPaletteLocal.length)]
+    });
+  }
+  
+  // Reset timer
+  gameStartTime = Date.now();
+  gameEndTime = gameStartTime + GAME_DURATION;
+  isGameActive = true;
+  
+  // Notify all clients to restart with new food data
+  io.emit('gameRestart', {
+    startTime: gameStartTime,
+    endTime: gameEndTime,
+    food: foodItems  // Send the new food array
+  });
+  
+  console.log('Game restarted! Food items:', foodItems.length);
+}
 
 // Safe spawn helper - find position away from other players
 function getSafeSpawnPosition() {
@@ -227,9 +272,63 @@ io.on('connection', (socket) => {
   });
 });
 
+// Check game timer and announce winner
+setInterval(() => {
+  const now = Date.now();
+  const timeLeft = Math.max(0, gameEndTime - now);
+  
+  if (isGameActive && timeLeft <= 0) {
+    isGameActive = false;
+    
+    // Find winner (player with highest score)
+    let winner = null;
+    let highestScore = -1;
+    
+    for (const id in players) {
+      if (players[id].score > highestScore) {
+        highestScore = players[id].score;
+        winner = players[id];
+      }
+    }
+    
+    // Announce winner
+    if (winner) {
+      io.emit('gameOver', {
+        winner: {
+          name: winner.name,
+          score: winner.score,
+          color: winner.color
+        }
+      });
+      console.log(`Game Over! Winner: ${winner.name} with ${winner.score} points`);
+    }
+    
+    // Restart game after 10 seconds
+    setTimeout(() => {
+      resetGame();
+    }, 10000);
+  }
+}, 1000);
+
 // Broadcast game state 20 gånger per sekund (optimerad för prestanda)
 setInterval(() => {
-  io.emit('state', { players });
+  const timeLeft = Math.max(0, gameEndTime - Date.now());
+  
+  // Optimize player data - limit body segments to reduce bandwidth
+  const optimizedPlayers = {};
+  Object.keys(players).forEach(id => {
+    const player = players[id];
+    optimizedPlayers[id] = {
+      ...player,
+      // Only send last 50 body segments to reduce data size
+      body: player.body.slice(-50)
+    };
+  });
+  
+  io.emit('state', { 
+    players: optimizedPlayers,
+    timeLeft: Math.floor(timeLeft / 1000) // Send time left in seconds
+  });
 }, 50);
 
 server.listen(PORT, () => {

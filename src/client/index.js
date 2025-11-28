@@ -18,6 +18,11 @@ bgMusic2.preload = 'auto';
 
 let isMusicMuted = false;
 
+// Game timer
+let timeLeft = 240; // 4 minutes in seconds
+let gameOverData = null;
+let showGameOver = false;
+
 // When first song ends, play second song
 bgMusic1.addEventListener('ended', () => {
   bgMusic2.play().catch(err => console.log('Second song play failed:', err));
@@ -138,6 +143,11 @@ function setupSocketListeners() {
   });
 
   socket.on('state', (data) => {
+    // Update time left
+    if (data.timeLeft !== undefined) {
+      timeLeft = data.timeLeft;
+    }
+    
     // Uppdatera alla spelares positioner med interpolation
     Object.keys(data.players).forEach(id => {
       if (id === myId) return; // Skippa egen spelare
@@ -192,6 +202,38 @@ function setupSocketListeners() {
         window.location.reload();
       }, 3000);
     }
+  });
+  
+  // Handle game over
+  socket.on('gameOver', (data) => {
+    console.log('Game Over!', data);
+    gameOverData = data;
+    showGameOver = true;
+  });
+  
+  // Handle game restart
+  socket.on('gameRestart', (data) => {
+    console.log('Game restarting...', data);
+    showGameOver = false;
+    gameOverData = null;
+    
+    // Update food items immediately with new data
+    if (data.food) {
+      foodItems = data.food;
+      console.log('Received new food items:', foodItems.length);
+    }
+    
+    // Clear local players but keep food
+    Object.keys(players).forEach(id => {
+      if (id !== myId) {
+        delete players[id];
+      }
+    });
+    
+    // Reload page to rejoin as new player after a short delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   });
 }
 
@@ -431,7 +473,10 @@ function checkPlayerCollisions() {
     
     // Kolla mitt huvud mot deras kropp-segment
     if (otherPlayer.body && otherPlayer.body.length > 0) {
-      for (let i = 0; i < otherPlayer.body.length; i++) {
+      // Check only every 3rd segment for performance if body is very long
+      const step = otherPlayer.body.length > 50 ? 3 : 1;
+      
+      for (let i = 0; i < otherPlayer.body.length; i += step) {
         const seg = otherPlayer.body[i];
         const dx = myPlayer.x - seg.x;
         const dy = myPlayer.y - seg.y;
@@ -523,8 +568,10 @@ function drawPlayer(player, isMe) {
   
   const bodyRadius = player.radius;
   
-  // Draw body
-  for (let i = player.body.length - 1; i > 0; i--) {
+  // Draw body - skip segments for performance if body is very long
+  const step = player.body.length > 100 ? 2 : 1; // Skip every other segment if too long
+  
+  for (let i = player.body.length - 1; i > 0; i -= step) {
     const seg = player.body[i];
     const screenX = seg.x - camera.x;
     const screenY = seg.y - camera.y;
@@ -778,6 +825,84 @@ function drawBoostIndicator() {
   ctx.strokeRect(x - barWidth/2, y, barWidth, barHeight);
 }
 
+function drawTimer() {
+  const isMobile = canvas.width < 768;
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  
+  // Position at top center
+  const x = canvas.width / 2;
+  const y = isMobile ? 25 : 30;
+  
+  // Background
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.fillRect(x - 80, y - 25, 160, 40);
+  
+  // Border
+  ctx.strokeStyle = timeLeft <= 30 ? '#FF0000' : '#FFD700';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x - 80, y - 25, 160, 40);
+  
+  // Time text
+  ctx.fillStyle = timeLeft <= 30 ? '#FF0000' : '#FFFFFF';
+  ctx.font = isMobile ? 'bold 20px Arial' : 'bold 24px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(timeString, x, y);
+  
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawGameOver() {
+  // Semi-transparent overlay
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const isMobile = canvas.width < 768;
+  
+  // Winner box
+  const boxWidth = isMobile ? canvas.width - 40 : 500;
+  const boxHeight = isMobile ? 250 : 300;
+  
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.fillRect(centerX - boxWidth/2, centerY - boxHeight/2, boxWidth, boxHeight);
+  
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 5;
+  ctx.strokeRect(centerX - boxWidth/2, centerY - boxHeight/2, boxWidth, boxHeight);
+  
+  // Title
+  ctx.fillStyle = '#FFD700';
+  ctx.font = isMobile ? 'bold 32px Arial' : 'bold 48px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('GAME OVER!', centerX, centerY - boxHeight/2 + (isMobile ? 50 : 70));
+  
+  // Winner info
+  if (gameOverData && gameOverData.winner) {
+    ctx.fillStyle = '#000000';
+    ctx.font = isMobile ? 'bold 20px Arial' : 'bold 28px Arial';
+    ctx.fillText('Winner:', centerX, centerY - (isMobile ? 20 : 30));
+    
+    // Winner name with color
+    ctx.fillStyle = gameOverData.winner.color;
+    ctx.font = isMobile ? 'bold 28px Arial' : 'bold 36px Arial';
+    ctx.fillText(gameOverData.winner.name, centerX, centerY + (isMobile ? 20 : 30));
+    
+    // Winner score
+    ctx.fillStyle = '#000000';
+    ctx.font = isMobile ? 'bold 24px Arial' : 'bold 32px Arial';
+    ctx.fillText(`Score: ${gameOverData.winner.score}`, centerX, centerY + (isMobile ? 60 : 80));
+  }
+  
+  // Restart message
+  ctx.fillStyle = '#666666';
+  ctx.font = isMobile ? '14px Arial' : '18px Arial';
+  ctx.fillText('Restarting in 10 seconds...', centerX, centerY + boxHeight/2 - (isMobile ? 25 : 35));
+}
+
 function interpolateOtherPlayers() {
   // Smooth movement för andra spelare
   Object.keys(players).forEach(id => {
@@ -822,6 +947,13 @@ function loop() {
   
   drawLeaderboard();
   drawBoostIndicator();
+  drawTimer();
+  
+  // Draw game over screen if game ended
+  if (showGameOver && gameOverData) {
+    drawGameOver();
+  }
+  
   requestAnimationFrame(loop);
 }
 
